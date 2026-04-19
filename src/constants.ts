@@ -9,7 +9,7 @@ export const portfolioData = {
   name: "Naitik Rajyaguru",
   title: "AI Systems & Full-Stack Engineer",
   description: "Architecting high-performance, AI-native ecosystems and microservices. Expert in RAG evolution, neural content adaptation, and agentic CI/CD workflows. Optimized 100+ legacy systems through performance-driven refactoring and automated accessibility compliance.",
-  profilePhoto: "https://raw.githubusercontent.com/Naitik1Rajyaguru/Naitik1Rajyaguru/main/IMG-20240322-WA0037.jpg",
+  profilePhoto: "/profile.jpg",
   contact: {
     email: "naitikrajyaguru@gmail.com",
     phone: "+91 9924254848",
