@@ -22,19 +22,19 @@ export const portfolioData = {
   hobbies: [
     {
       name: "Competitive Gaming",
-      desc: "High-stakes tactical FPS and strategy games. Leveling up reaction times and strategic foresight.",
+      desc: "Tactical FPS and strategy games for reaction time and strategic thinking.",
       type: "GAMING",
       image: "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=800&auto=format&fit=crop"
     },
     {
-      name: "Piano Performance",
-      desc: "Classical and contemporary pieces. Mastering rhythm, coordination, and creative flow.",
+      name: "Piano",
+      desc: "Classical and contemporary pieces. Building rhythm and creative flow.",
       type: "PIANO",
       image: "https://images.unsplash.com/photo-1520529611404-9aba50303a0c?q=80&w=800&auto=format&fit=crop"
     },
     {
-      name: "Cinematic Exploration",
-      desc: "Deep diving into world cinema and high-concept web series. Analyzing narrative structures and pacing.",
+      name: "Cinema",
+      desc: "World cinema and web series. Analyzing narrative structures.",
       type: "MEDIA",
       image: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?q=80&w=800&auto=format&fit=crop"
     }
@@ -123,7 +123,7 @@ export const portfolioData = {
       description: "Python-driven web crawler and NLP summarizer. Features an automated SMTP delivery system and a Tkinter-based user registration gateway for daily intelligence digests.",
       tech: ["Python", "NLTK", "Scrapy"],
       sprite: "SCANNER",
-      image: "https://images.unsplash.com/photo-1504711432819-0627d74ad302?q=80&w=800&auto=format&fit=crop",
+      image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=800&auto=format&fit=crop",
       links: { github: "https://github.com/Naitik1Rajyaguru/News-Summerizer", live: "" }
     },
     {
