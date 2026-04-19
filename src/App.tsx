@@ -4,176 +4,404 @@
  */
 
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'motion/react';
-import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Terminal as TerminalIcon, 
-  User, 
-  Code2, 
-  History, 
-  Mail, 
-  Send, 
-  Phone, 
-  MapPin, 
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  Terminal as TerminalIcon,
+  User,
+  Code2,
+  History,
+  Mail,
+  Send,
+  Phone,
+  MapPin,
   ChevronRight,
-  Maximize2,
-  Minus,
-  X,
-  Bot,
-  Cpu,
-  Zap,
-  Boxes,
-  Activity,
-  Award,
-  ExternalLink,
-  Github as GithubIcon,
   RefreshCcw,
   Search,
-  MessageSquareShare
+  MessageSquareShare,
+  Github as GithubIcon,
+  ExternalLink,
+  Zap,
+  Boxes,
+  Cpu,
+  Keyboard,
+  X,
+  HelpCircle,
+  Briefcase,
+  FolderOpen,
+  Home,
+  Command
 } from 'lucide-react';
 import { portfolioData } from './constants';
 
-const FUZZY_MODULES = {
-  projects: ['proj', 'projects', 'works', 'assignment', 'project'],
-  experience: ['exp', 'experience', 'jobs', 'work', 'history'],
-  contact: ['contact', 'call', 'mail', 'reach', 'connect'],
-  whoami: ['whoami', 'me', 'about', 'bio', 'personal', 'hobbies']
+const COMMANDS = {
+  ls: ['ls', 'list', 'dir', 'show'],
+  cat: ['cat', 'view', 'read', 'open'],
+  projects: ['projects', 'proj', 'project', 'works', 'p'],
+  experience: ['experience', 'exp', 'work', 'jobs', 'history', 'career', 'e'],
+  contact: ['contact', 'mail', 'email', 'reach', 'connect', 'c'],
+  whoami: ['whoami', 'about', 'me', 'bio', 'personal', 'a', 'w']
 };
 
-const getFuzzyMatch = (input: string) => {
-  for (const [module, aliases] of Object.entries(FUZZY_MODULES)) {
-    if (aliases.some(a => input.includes(a))) return module;
+const getCommandMatch = (input: string): { action: string; target: string } | null => {
+  const parts = input.toLowerCase().trim().split(/\s+/);
+  const cmd = parts[0];
+  const arg = parts[1] || '';
+
+  // Check if it's a direct navigation (e.g., "projects", "experience")
+  for (const [module, aliases] of Object.entries(COMMANDS)) {
+    if (['ls', 'cat'].includes(module)) continue;
+    if (aliases.some(a => cmd === a || arg === a)) {
+      return { action: 'navigate', target: module };
+    }
   }
+
+  // Check for ls/cat style commands (e.g., "ls projects", "cat experience")
+  const isLs = COMMANDS.ls.some(l => cmd === l);
+  const isCat = COMMANDS.cat.some(c => cmd === c);
+
+  if ((isLs || isCat) && arg) {
+    for (const [module, aliases] of Object.entries(COMMANDS)) {
+      if (['ls', 'cat'].includes(module)) continue;
+      if (aliases.some(a => arg === a)) {
+        return { action: 'navigate', target: module };
+      }
+    }
+  }
+
   return null;
 };
 
-// --- Sprites & Animations ---
+// --- Optimized Background Animation ---
 
-const ScanLine = () => (
-  <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-full">
-    <div className="w-full h-1 bg-amber-500/30 blur-[2px] scan-line" />
-  </div>
-);
+const TerminalBackground = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-const SpritePlayground = ({ type }: { type: string }) => (
-  <div className="absolute inset-0 pointer-events-none opacity-20">
-    {[...Array(6)].map((_, i) => (
-      <motion.div
-        key={i}
-        initial={{ x: Math.random() * 800, y: Math.random() * 600 }}
-        animate={{ 
-          x: [Math.random() * 800, Math.random() * 800], 
-          y: [Math.random() * 600, Math.random() * 600] 
-        }}
-        transition={{ duration: 10 + Math.random() * 10, repeat: Infinity, repeatType: "mirror" }}
-        className="absolute"
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Terminal-style characters
+    const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
+    const fontSize = 14;
+    const columns = Math.floor(canvas.width / fontSize);
+
+    // Track which columns are active (fewer = better performance)
+    const drops: number[] = [];
+    const activeColumns: boolean[] = [];
+    for (let i = 0; i < columns; i++) {
+      drops[i] = Math.random() * -100;
+      activeColumns[i] = Math.random() > 0.7; // Only 30% of columns active
+    }
+
+    let frameCount = 0;
+    let animationId: number;
+
+    const draw = () => {
+      frameCount++;
+
+      // Render every 2nd frame for performance (30fps instead of 60fps)
+      if (frameCount % 2 === 0) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.08)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.font = `${fontSize}px monospace`;
+
+        for (let i = 0; i < drops.length; i++) {
+          if (!activeColumns[i]) continue;
+
+          const char = chars[Math.floor(Math.random() * chars.length)];
+          const y = drops[i] * fontSize;
+
+          // Varying opacity for depth effect
+          const opacity = Math.random() > 0.95 ? 0.8 : 0.3;
+          ctx.fillStyle = `rgba(99, 102, 241, ${opacity})`;
+          ctx.fillText(char, i * fontSize, y);
+
+          if (y > canvas.height && Math.random() > 0.975) {
+            drops[i] = 0;
+          }
+          drops[i]++;
+        }
+      }
+
+      animationId = requestAnimationFrame(draw);
+    };
+
+    draw();
+
+    return () => {
+      window.removeEventListener('resize', resize);
+      cancelAnimationFrame(animationId);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="fixed inset-0 z-0 pointer-events-none"
+      style={{ opacity: 0.4 }}
+    />
+  );
+};
+
+// --- Floating Particles (Optimized) ---
+
+const FloatingParticles = () => {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return (
+    <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+      {[...Array(15)].map((_, i) => (
+        <motion.div
+          key={i}
+          className="absolute w-1 h-1 bg-indigo-400/30 rounded-full"
+          initial={{
+            x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1000),
+            y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 800)
+          }}
+          animate={{
+            y: [null, Math.random() * -100],
+            opacity: [0.2, 0.5, 0.2]
+          }}
+          transition={{
+            duration: 10 + Math.random() * 10,
+            repeat: Infinity,
+            delay: Math.random() * 5
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
+// --- Keyboard Shortcuts Panel ---
+
+const KeyboardShortcuts = ({ onCommand }: { onCommand: (cmd: string) => void }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const shortcuts = [
+    { key: 'H', label: 'Home / Back to Shell', cmd: 'home', icon: Home },
+    { key: 'P', label: 'Projects', cmd: 'projects', icon: FolderOpen },
+    { key: 'E', label: 'Experience', cmd: 'experience', icon: Briefcase },
+    { key: 'C', label: 'Contact', cmd: 'contact', icon: Mail },
+    { key: 'A', label: 'About / Whoami', cmd: 'whoami', icon: User },
+    { key: '?', label: 'Toggle Help', cmd: 'help', icon: HelpCircle },
+  ];
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      if (e.target instanceof HTMLInputElement) return;
+
+      const key = e.key.toLowerCase();
+
+      switch (key) {
+        case 'h':
+          onCommand('home');
+          break;
+        case 'p':
+          onCommand('projects');
+          break;
+        case 'e':
+          onCommand('experience');
+          break;
+        case 'c':
+          onCommand('contact');
+          break;
+        case 'a':
+        case 'w':
+          onCommand('whoami');
+          break;
+        case '?':
+        case '/':
+          e.preventDefault();
+          setIsOpen(prev => !prev);
+          break;
+        case 'escape':
+          setIsOpen(false);
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onCommand]);
+
+  return (
+    <>
+      {/* Toggle Button */}
+      <motion.button
+        onClick={() => setIsOpen(true)}
+        className="fixed top-6 right-6 z-50 p-3 bg-slate-800/80 backdrop-blur-md border border-slate-700/50 rounded-xl text-slate-300 hover:text-indigo-400 hover:border-indigo-500/50 transition-all shadow-lg"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
       >
-        <FloatingSprite type={type} />
-      </motion.div>
-    ))}
-  </div>
-);
+        <Keyboard size={20} />
+      </motion.button>
+
+      {/* Help Panel */}
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsOpen(false)}
+              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -20 }}
+              className="fixed top-24 right-6 z-50 w-80 bg-slate-900/95 border border-slate-700/50 rounded-2xl p-6 shadow-2xl backdrop-blur-xl"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-500/20 rounded-lg">
+                    <Command size={18} className="text-indigo-400" />
+                  </div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">Shortcuts</h3>
+                </div>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-1 text-slate-400 hover:text-white transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {shortcuts.map(({ key, label, cmd, icon: Icon }) => (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      onCommand(cmd);
+                      setIsOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 hover:bg-slate-700/50 transition-colors group"
+                  >
+                    <Icon size={16} className="text-slate-400 group-hover:text-indigo-400" />
+                    <span className="flex-1 text-left text-sm text-slate-300">{label}</span>
+                    <kbd className="px-2 py-1 text-xs font-mono bg-slate-700 text-slate-300 rounded border border-slate-600">
+                      {key}
+                    </kbd>
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-slate-700/50">
+                <p className="text-xs text-slate-500 text-center">
+                  Press <kbd className="px-1.5 py-0.5 bg-slate-700 rounded text-slate-300">?</kbd> to toggle
+                </p>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
+
+// --- Optimized Sprites ---
 
 const FloatingSprite = ({ type }: { type: string }) => {
-  const variants = {
-    animate: {
-      y: [0, -10, 0],
-      rotate: [0, 5, -5, 0],
-      transition: { duration: 4, repeat: Infinity, ease: "easeInOut" }
-    }
-  };
-
   const sprites: Record<string, React.ReactNode> = {
-    AI_EXPERT: <div className="relative"><Cpu className="text-amber-500" size={32} /><motion.div animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity }} className="absolute -top-1 -right-1 w-2 h-2 bg-blue-400 rounded-full blur-sm" /></div>,
-    ARCHITECT: <div className="relative"><Boxes className="text-blue-400" size={32} /><motion.div animate={{ rotate: 360 }} transition={{ duration: 10, repeat: Infinity, ease: "linear" }} className="absolute inset-0 border-2 border-dashed border-white/20 rounded-lg" /></div>,
-    SPEED_NINJA: <div className="relative"><Zap className="text-yellow-400" size={32} /><motion.div animate={{ x: [-10, 10] }} transition={{ repeat: Infinity, duration: 0.5, repeatType: "mirror" }} className="absolute -inset-1 bg-yellow-400/20 blur-md rounded-full" /></div>,
-    BUILDER: <div className="relative"><Code2 className="text-emerald-500" size={32} /><motion.div animate={{ opacity: [0.2, 1, 0.2] }} transition={{ repeat: Infinity }} className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 shadow-[0_0_10px_#10b981]" /></div>,
-    SCANNER: <div className="relative"><Search className="text-rose-400" size={32} /><motion.div animate={{ scale: [1, 1.5], opacity: [0.5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }} className="absolute inset-0 border border-rose-500 rounded-full" /></div>,
-    DEFAULT: <TerminalIcon className="text-white/20" size={32} />
+    AI_EXPERT: <Cpu className="text-indigo-400" size={28} />,
+    ARCHITECT: <Boxes className="text-blue-400" size={28} />,
+    SPEED_NINJA: <Zap className="text-amber-400" size={28} />,
+    BUILDER: <Code2 className="text-emerald-400" size={28} />,
+    SCANNER: <Search className="text-rose-400" size={28} />,
+    DEFAULT: <TerminalIcon className="text-white/20" size={28} />
   };
 
   return (
-    <motion.div variants={variants} animate="animate" className="flex items-center justify-center pointer-events-none">
+    <motion.div
+      animate={{ y: [0, -8, 0] }}
+      transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+      className="flex items-center justify-center"
+    >
       {sprites[type] || sprites.DEFAULT}
     </motion.div>
   );
 };
 
-// --- Hobby Animations ---
-
-const playNote = (freq: number) => {
-  const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(freq, ctx.currentTime);
-  gain.gain.setValueAtTime(0.1, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1);
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start();
-  osc.stop(ctx.currentTime + 1);
-};
-
-const SnakeAnimation = () => (
-  <div className="w-full h-24 bg-black/40 rounded-xl relative overflow-hidden border border-white/5">
-    <motion.div 
-      animate={{ 
-        x: [0, 50, 50, 100, 100, 20, 20, 0],
-        y: [0, 0, 30, 30, 60, 60, 10, 0]
-      }}
-      transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
-      className="absolute w-2 h-2 bg-emerald-500 shadow-[0_0_8px_#10b981]"
-    />
-    {[...Array(5)].map((_, i) => (
-      <motion.div 
-        key={i}
-        animate={{ 
-          x: [0, 50, 50, 100, 100, 20, 20, 0],
-          y: [0, 0, 30, 30, 60, 60, 10, 0]
-        }}
-        transition={{ duration: 5, repeat: Infinity, ease: "linear", delay: (i + 1) * 0.1 }}
-        className="absolute w-2 h-2 bg-emerald-500/40"
-      />
-    ))}
-    <div className="absolute top-1/2 left-3/4 w-2 h-2 bg-rose-500 rounded-full animate-ping" />
-  </div>
-);
+// --- Simplified Hobby Animations ---
 
 const MiniPiano = () => (
-  <div className="flex gap-1 h-24">
-    {[261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88].map((f, i) => (
-      <motion.button
+  <div className="flex gap-0.5 h-16 items-end justify-center">
+    {[...Array(5)].map((_, i) => (
+      <motion.div
         key={i}
-        whileTap={{ scaleY: 0.9, backgroundColor: '#f59e0b' }}
-        onClick={() => playNote(f)}
-        className="flex-1 bg-white/10 hover:bg-white/20 rounded-b-lg border-x border-white/5 transition-colors"
+        animate={{ height: [15, 30, 15] }}
+        transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.08 }}
+        className="w-3 bg-indigo-400/50 rounded-t"
       />
     ))}
   </div>
 );
 
 const CinemaAnimation = () => (
-  <div className="w-full h-24 bg-zinc-900 rounded-xl relative overflow-hidden flex items-center justify-center">
-    <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-50" />
-    <motion.div 
-      animate={{ opacity: [0.5, 0.8, 0.5] }}
-      transition={{ duration: 0.1, repeat: Infinity }}
-      className="w-3/4 h-3/4 bg-white/5 flex items-center justify-center rounded border border-white/10"
-    >
-      <div className="flex gap-1">
-        <motion.div animate={{ height: [10, 30, 10] }} transition={{ repeat: Infinity, duration: 0.8 }} className="w-1 bg-amber-500" />
-        <motion.div animate={{ height: [20, 10, 20] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1 bg-amber-500/50" />
-        <motion.div animate={{ height: [15, 25, 15] }} transition={{ repeat: Infinity, duration: 0.6 }} className="w-1 bg-amber-500" />
-      </div>
-    </motion.div>
+  <div className="flex items-center justify-center gap-1 h-16">
+    {[...Array(3)].map((_, i) => (
+      <motion.div
+        key={i}
+        animate={{ height: [8, 24, 8] }}
+        transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.1 }}
+        className="w-1 bg-indigo-400/60 rounded-full"
+      />
+    ))}
   </div>
 );
 
-// --- Terminal Component ---
+const VibeCodingAnimation = () => (
+  <div className="flex flex-col items-center justify-center h-16 gap-1">
+    <div className="flex gap-1">
+      {[...Array(5)].map((_, i) => (
+        <motion.div
+          key={i}
+          animate={{
+            opacity: [0.3, 1, 0.3],
+            scale: [1, 1.2, 1]
+          }}
+          transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.15 }}
+          className="w-2 h-2 bg-emerald-400/70 rounded-full"
+        />
+      ))}
+    </div>
+    <motion.span
+      className="font-mono text-[10px] text-emerald-400/60"
+      animate={{ opacity: [0, 1, 0] }}
+      transition={{ duration: 0.8, repeat: Infinity }}
+    >_</motion.span>
+  </div>
+);
+
+// --- Simplified Terminal Component ---
 
 const Terminal = ({ onCommand }: { onCommand: (cmd: string) => void }) => {
   const [input, setInput] = useState('');
-  const [history, setHistory] = useState<string[]>(['[SYSTEM_BOOT]: Success', 'Welcome, Operator Rajyaguru.', 'Available Sectors: projects, experience, contact, whoami', 'Type "help" to start.']);
+  const [history, setHistory] = useState<string[]>([
+    'Welcome to Naitik\'s Portfolio Terminal.',
+    'Type a command or use keyboard shortcuts.',
+    'Try: projects | experience | contact | whoami'
+  ]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleCommand = (e: React.FormEvent) => {
@@ -181,75 +409,70 @@ const Terminal = ({ onCommand }: { onCommand: (cmd: string) => void }) => {
     const cmdInput = input.trim().toLowerCase();
     if (!cmdInput) return;
 
-    setHistory(prev => [...prev, `> ${cmdInput}`]);
-    
-    // Split command and argument
-    const parts = cmdInput.split(' ');
-    const command = parts[0];
-    const target = parts[1] || command;
+    setHistory(prev => [...prev.slice(-10), `> ${cmdInput}`]); // Keep only last 10 lines
 
-    if (command === 'help') {
-      const helpLines = portfolioData.terminalHelp.map(h => `${h.cmd.padEnd(15)} - ${h.desc}`);
-      setHistory(prev => [...prev, ...helpLines]);
-    } else if (command === 'clear') {
+    const command = getCommandMatch(cmdInput);
+
+    if (cmdInput === 'help' || cmdInput === 'h') {
+      setHistory(prev => [...prev,
+        'Available commands:',
+        '  ls projects    - View projects',
+        '  cat experience - View experience',
+        '  ls contact     - Get in touch',
+        '  cat whoami     - About me',
+        '  projects, p    - Quick: View projects',
+        '  experience, e  - Quick: View experience',
+        '  contact, c     - Quick: Get in touch',
+        '  whoami, a      - Quick: About me',
+        '  clear          - Clear terminal'
+      ]);
+    } else if (cmdInput === 'clear') {
       setHistory([]);
+    } else if (command) {
+      setHistory(prev => [...prev, `Loading ${command.target}...`]);
+      setTimeout(() => onCommand(command.target), 300);
     } else {
-      const matchedModule = getFuzzyMatch(target);
-      if (matchedModule) {
-        if (target !== matchedModule) {
-          setHistory(prev => [...prev, `[SYSTEM_WARNING]: Spelling mismatch detected.`, `[REROUTING]: Translating '${target}' to sectoral protocol '${matchedModule}'...`]);
-          setTimeout(() => onCommand(matchedModule), 800);
-        } else {
-          onCommand(matchedModule);
-        }
-      } else {
-        setHistory(prev => [...prev, `[ERROR]: Sector '${target}' not found in mainframe.`, `[TIP]: Are you sure you are authorized? Try 'projects' or 'experience'.`]);
-      }
+      setHistory(prev => [...prev, `Command not found: ${cmdInput}`, 'Type "help" for available commands']);
     }
-    
+
     setInput('');
   };
 
-  useEffect(() => {
-    const container = document.getElementById('terminal-buffer');
-    if (container) container.scrollTop = container.scrollHeight;
-  }, [history]);
-
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full max-w-2xl bg-black/90 border border-white/10 rounded-xl overflow-hidden shadow-2xl backdrop-blur-md"
+      className="w-full max-w-xl bg-slate-900/90 border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-md"
     >
-      <div className="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-white/5">
+      <div className="flex items-center justify-between px-4 py-3 bg-slate-800/50 border-b border-slate-700/50">
         <div className="flex items-center gap-2">
-          <TerminalIcon size={14} className="text-amber-500" />
-          <span className="text-[10px] font-mono text-white/40 uppercase tracking-widest">NR_OS v2.0.42</span>
+          <TerminalIcon size={14} className="text-indigo-400" />
+          <span className="text-xs font-mono text-slate-400">portfolio-terminal</span>
         </div>
         <div className="flex gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
-          <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
-          <div className="w-2.5 h-2.5 rounded-full bg-amber-500/50" />
+          <div className="w-3 h-3 rounded-full bg-slate-600" />
+          <div className="w-3 h-3 rounded-full bg-slate-600" />
+          <div className="w-3 h-3 rounded-full bg-indigo-500" />
         </div>
       </div>
-      
-      <div id="terminal-buffer" className="h-64 overflow-y-auto p-4 font-mono text-xs space-y-1 invisible-scrollbar">
+
+      <div className="h-48 overflow-y-auto p-4 font-mono text-sm space-y-1 invisible-scrollbar">
         {history.map((line, i) => (
-          <div key={i} className={line.startsWith('>') ? 'text-amber-500' : 'text-white/60'}>
+          <div key={i} className={line.startsWith('>') ? 'text-indigo-400' : 'text-slate-400'}>
             {line}
           </div>
         ))}
       </div>
 
-      <form onSubmit={handleCommand} className="flex items-center gap-2 px-4 py-3 bg-white/5 border-t border-white/5">
-        <ChevronRight size={14} className="text-amber-500 animate-pulse" />
-        <input 
+      <form onSubmit={handleCommand} className="flex items-center gap-2 px-4 py-3 bg-slate-800/30 border-t border-slate-700/50">
+        <ChevronRight size={14} className="text-indigo-400" />
+        <input
           ref={inputRef}
-          type="text" 
+          type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Execute module..."
-          className="flex-1 bg-transparent border-none outline-none text-amber-500 placeholder:text-white/10"
+          placeholder="Enter command..."
+          className="flex-1 bg-transparent border-none outline-none text-indigo-300 placeholder:text-slate-600"
           autoFocus
         />
       </form>
@@ -261,170 +484,171 @@ const Terminal = ({ onCommand }: { onCommand: (cmd: string) => void }) => {
 
 export default function App() {
   const [activeModule, setActiveModule] = useState<string | null>(null);
-  
-  // Interactive Avatar Movement
-  const x = useSpring(useMotionValue(0), { stiffness: 100, damping: 30 });
-  const y = useSpring(useMotionValue(0), { stiffness: 100, damping: 30 });
-  const rotateX = useTransform(y, [-100, 100], [15, -15]);
-  const rotateY = useTransform(x, [-100, 100], [-15, 15]);
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  // Simplified avatar movement (reduced complexity)
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const rotateX = useTransform(y, [-100, 100], [8, -8]);
+  const rotateY = useTransform(x, [-100, 100], [-8, 8]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const { innerWidth, innerHeight } = window;
-    x.set(e.clientX - innerWidth / 2);
-    y.set(e.clientY - innerHeight / 2);
-  };
+    x.set((e.clientX - innerWidth / 2) / 10);
+    y.set((e.clientY - innerHeight / 2) / 10);
+  }, [x, y]);
 
-  const executeCommand = (cmd: string) => {
-    const target = getFuzzyMatch(cmd);
-    if (target) setActiveModule(target);
-  };
+  const executeCommand = useCallback((cmd: string) => {
+    if (cmd === 'home' || cmd === '') {
+      setActiveModule(null);
+    } else {
+      const command = getCommandMatch(cmd);
+      if (command) {
+        setActiveModule(command.target);
+      } else {
+        // Direct navigation if no command match found
+        const validModules = ['projects', 'experience', 'contact', 'whoami'];
+        if (validModules.includes(cmd)) {
+          setActiveModule(cmd);
+        }
+      }
+    }
+  }, []);
 
   return (
-    <div 
+    <div
       onMouseMove={handleMouseMove}
-      className="relative min-h-screen bg-[#050505] text-white selection:bg-amber-500 selection:text-black overflow-hidden font-sans"
+      className="relative min-h-screen bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white overflow-hidden font-sans"
     >
-      {/* Background Atmosphere */}
-      <div className="fixed inset-0 z-0">
-        <div className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] bg-amber-500/10 blur-[160px] rounded-full animate-pulse" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[70%] h-[70%] bg-blue-500/10 blur-[160px] rounded-full" />
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.25]" />
-        
-        {/* Grid Overlay */}
-        <div 
-          className="absolute inset-0 opacity-[0.03]"
-          style={{ backgroundImage: 'linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)', backgroundSize: '40px 40px' }}
-        />
+      {/* Background Effects */}
+      <TerminalBackground />
+      <FloatingParticles />
+
+      {/* Gradient Overlays */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-indigo-600/10 blur-[150px] rounded-full" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-blue-600/10 blur-[150px] rounded-full" />
       </div>
 
-      <main className="relative z-10 flex flex-col items-center justify-center min-h-screen p-8">
+      {/* Keyboard Shortcuts */}
+      <KeyboardShortcuts onCommand={executeCommand} />
+
+      <main className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6 md:p-8">
         <AnimatePresence mode="wait">
           {!activeModule ? (
-            <motion.div 
+            <motion.div
               key="hero"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="flex flex-col items-center gap-12"
+              className="flex flex-col items-center gap-10 max-w-4xl"
             >
               {/* Profile Avatar */}
               <motion.div
                  style={{ rotateX, rotateY, perspective: 1000 }}
                  className="relative group"
               >
-                <div className="absolute inset-0 bg-amber-500/30 blur-3xl rounded-full scale-125 group-hover:scale-150 transition-all duration-1000" />
-                <div className="relative w-48 h-48 md:w-64 md:h-64 rounded-full overflow-hidden border-2 border-white/20 shadow-[0_0_50px_rgba(255,159,11,0.2)]">
-                  <img 
-                    src={portfolioData.profilePhoto} 
-                    alt="Naitik Rajyaguru" 
-                    className="w-full h-full object-cover scale-100 grayscale-[0.5] group-hover:grayscale-0 transition-all duration-700"
-                    referrerPolicy="no-referrer"
+                <div className="absolute inset-0 bg-indigo-500/20 blur-3xl rounded-full scale-125 group-hover:scale-150 transition-all duration-700" />
+                <div className="relative w-40 h-40 md:w-56 md:h-56 rounded-full overflow-hidden border-2 border-slate-700 shadow-2xl">
+                  <img
+                    src="/avatar_3d_portrait.png"
+                    alt="Naitik Rajyaguru"
+                    className="w-full h-full object-cover"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = "https://ui-avatars.com/api/?name=Naitik+Rajyaguru&background=f59e0b&color=000&bold=true";
+                      (e.target as HTMLImageElement).src = "/profile.jpg";
                     }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-60" />
-                  <ScanLine />
-                </div>
-                
-                {/* Tactical Overlays */}
-                <div className="absolute -top-4 -right-4 flex flex-col items-end">
-                  <div className="px-3 py-1 bg-amber-500 text-black text-[12px] font-black uppercase tracking-tighter rounded-sm shadow-lg shadow-amber-500/20">Live</div>
-                  <div className="text-[10px] font-mono text-white/60 mt-2 tracking-widest font-bold">ID: NR_779</div>
                 </div>
               </motion.div>
 
-              <div className="text-center space-y-6">
-                <h1 className="text-6xl md:text-8xl font-black uppercase tracking-tighter leading-[0.85] italic flex flex-wrap justify-center items-center gap-x-4">
-                  <span className="text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]">NAITIK</span> 
-                  <span className="text-amber-500 drop-shadow-[0_0_30px_rgba(245,158,11,0.2)] tracking-tight">RAJYAGURU</span>
+              <div className="text-center space-y-4">
+                <h1 className="text-5xl md:text-7xl font-bold tracking-tight">
+                  <span className="text-white">Naitik </span>
+                  <span className="text-indigo-400">Rajyaguru</span>
                 </h1>
-                <div className="flex items-center justify-center gap-4 text-[11px] md:text-sm font-mono uppercase tracking-[0.6em] text-white/40 font-bold">
-                  <span>ADAPTIVE SYSTEMS</span>
-                  <span className="text-amber-500/50">/</span>
-                  <span>AI ARCHITECT</span>
-                  <span className="text-amber-500/50">/</span>
-                  <span>NEURAL FRONTIERS</span>
+                <p className="text-lg md:text-xl text-slate-400 font-medium">
+                  AI Systems & Full-Stack Engineer
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-slate-500">
+                  <span>Adaptive Systems</span>
+                  <span className="text-indigo-500">/</span>
+                  <span>AI Architecture</span>
+                  <span className="text-indigo-500">/</span>
+                  <span>Neural Frontiers</span>
                 </div>
               </div>
 
               <Terminal onCommand={executeCommand} />
-              
-              <div className="flex gap-8 text-[10px] font-mono uppercase tracking-widest text-white/20">
-                 {portfolioData.terminalHelp.slice(0, 3).map(h => (
-                   <span key={h.cmd} className="flex gap-2 items-center">
-                     <span className="text-amber-500/50">#</span> {h.cmd}
-                   </span>
-                 ))}
+
+              <div className="flex flex-wrap gap-4 text-xs text-slate-500">
+                <span className="flex items-center gap-2">
+                  <kbd className="px-2 py-1 bg-slate-800 rounded border border-slate-700">P</kbd> Projects
+                </span>
+                <span className="flex items-center gap-2">
+                  <kbd className="px-2 py-1 bg-slate-800 rounded border border-slate-700">E</kbd> Experience
+                </span>
+                <span className="flex items-center gap-2">
+                  <kbd className="px-2 py-1 bg-slate-800 rounded border border-slate-700">C</kbd> Contact
+                </span>
+                <span className="flex items-center gap-2">
+                  <kbd className="px-2 py-1 bg-slate-800 rounded border border-slate-700">?</kbd> Help
+                </span>
               </div>
             </motion.div>
           ) : (
-            <motion.div 
+            <motion.div
               key="module"
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 1.05, y: -20 }}
-              className="w-full max-w-7xl bg-zinc-950/90 border border-white/5 rounded-[40px] p-6 md:p-12 relative overflow-hidden backdrop-blur-3xl shadow-[0_0_100px_rgba(0,0,0,1)]"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="w-full max-w-6xl bg-slate-900/80 border border-slate-700/50 rounded-3xl p-6 md:p-10 relative overflow-hidden backdrop-blur-xl shadow-2xl"
             >
-              <SpritePlayground type={activeModule === 'experience' ? 'ARCHITECT' : activeModule === 'projects' ? 'SPEED_NINJA' : 'DEFAULT'} />
-              
-              <div className="absolute top-8 right-8 flex gap-4 z-50">
-                <button 
+              <div className="absolute top-6 right-6">
+                <button
                   onClick={() => setActiveModule(null)}
-                  className="flex items-center gap-2 px-6 py-3 bg-amber-500 text-black rounded-full font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-transform shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-full text-sm font-medium hover:bg-indigo-500 transition-colors"
                 >
-                  <RefreshCcw size={14} /> Back to Shell
+                  <RefreshCcw size={14} /> Back
                 </button>
               </div>
 
-              {/* Module Content */}
-              <div className="space-y-16">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-white/5 pb-12">
-                  <div className="flex items-center gap-6">
-                    <div className="p-6 bg-amber-500/10 rounded-[32px] border border-amber-500/20 shadow-inner">
-                      {activeModule === 'experience' && <History className="text-amber-500" size={32} />}
-                      {activeModule === 'projects' && <Code2 className="text-amber-500" size={32} />}
-                      {activeModule === 'contact' && <Mail className="text-amber-500" size={32} />}
-                      {activeModule === 'whoami' && <User className="text-amber-500" size={32} />}
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-[10px] font-mono text-amber-500/50 uppercase tracking-[0.4em] font-bold">Sector: {activeModule}</div>
-                      <h2 className="text-5xl md:text-8xl font-black uppercase tracking-tighter text-white">
-                        {activeModule}
-                      </h2>
-                    </div>
+              <div className="space-y-8">
+                <div className="flex items-center gap-4 border-b border-slate-700/50 pb-6">
+                  <div className="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
+                    {activeModule === 'experience' && <History className="text-indigo-400" size={24} />}
+                    {activeModule === 'projects' && <Code2 className="text-indigo-400" size={24} />}
+                    {activeModule === 'contact' && <Mail className="text-indigo-400" size={24} />}
+                    {activeModule === 'whoami' && <User className="text-indigo-400" size={24} />}
+                  </div>
+                  <div>
+                    <div className="text-xs font-mono text-indigo-400/70 uppercase tracking-wider">Section</div>
+                    <h2 className="text-3xl md:text-4xl font-bold text-white capitalize">{activeModule}</h2>
                   </div>
                 </div>
 
                 {activeModule === 'experience' && (
                   <div className="grid gap-4">
                     {portfolioData.experience.map((exp, idx) => (
-                      <div key={idx} className="group relative grid md:grid-cols-[200px,1fr] gap-12 p-10 rounded-[40px] bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] transition-all duration-500">
-                        <div className="space-y-4">
-                          <div className="w-20 h-20 rounded-2xl bg-white overflow-hidden flex items-center justify-center p-2 shadow-xl grayscale group-hover:grayscale-0 transition-all duration-700">
-                            <img src={(exp as any).logo} alt={exp.company} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                          </div>
-                          <div>
-                            <h3 className="text-2xl font-black uppercase tracking-tight text-white">{exp.company}</h3>
-                            <p className="text-[10px] font-mono text-amber-500 uppercase tracking-widest font-bold">{exp.role}</p>
-                            <p className="text-[10px] text-white/30 uppercase tracking-[0.2em]">{exp.duration}</p>
-                          </div>
-                        </div>
-
-                        <div className="grid gap-12">
-                          {exp.highlights.map((h, i) => (
-                            <div key={i} className="space-y-4 relative">
-                              <div className="flex items-center gap-4">
-                                <div className="p-2 bg-amber-500 rounded-lg">
-                                  <FloatingSprite type={h.sprite} />
-                                </div>
-                                <h4 className="text-xl font-bold text-white uppercase tracking-tight">{h.title}</h4>
-                              </div>
-                              <p className="text-sm text-white/50 leading-relaxed max-w-3xl">
-                                {h.description}
-                              </p>
+                      <div key={idx} className="p-6 rounded-2xl bg-slate-800/50 border border-slate-700/50 hover:border-indigo-500/30 transition-colors">
+                        <div className="flex flex-col md:flex-row gap-6">
+                          <div className="md:w-48 space-y-2">
+                            <div className="w-16 h-16 rounded-xl bg-white p-2 flex items-center justify-center">
+                              <img src={(exp as any).logo} alt={exp.company} className="w-full h-full object-contain" />
                             </div>
-                          ))}
+                            <h3 className="text-lg font-bold text-white">{exp.company}</h3>
+                            <p className="text-xs text-indigo-400 font-medium">{exp.role}</p>
+                            <p className="text-xs text-slate-500">{exp.duration}</p>
+                          </div>
+                          <div className="flex-1 space-y-4">
+                            {exp.highlights.map((h, i) => (
+                              <div key={i} className="space-y-2">
+                                <div className="flex items-center gap-3">
+                                  <FloatingSprite type={h.sprite} />
+                                  <h4 className="font-semibold text-slate-200">{h.title}</h4>
+                                </div>
+                                <p className="text-sm text-slate-400 leading-relaxed">{h.description}</p>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -432,176 +656,165 @@ export default function App() {
                 )}
 
                 {activeModule === 'projects' && (
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid md:grid-cols-2 gap-4">
                     {portfolioData.projects.map((p: any, i) => (
-                      <motion.div 
+                      <div
                         key={i}
-                        layoutId={`project-${i}`}
-                        className="rounded-[40px] bg-zinc-900/50 border border-white/5 group flex flex-col overflow-hidden relative shadow-2xl hover:border-amber-500/30 transition-colors"
+                        className="rounded-2xl bg-slate-800/50 border border-slate-700/50 overflow-hidden group hover:border-indigo-500/30 transition-colors"
                       >
-                         <div className="h-64 overflow-hidden relative">
-                           <img 
-                             src={p.image} 
-                             className="w-full h-full object-cover grayscale opacity-30 group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-105 transition-all duration-1000" 
-                             referrerPolicy="no-referrer" 
-                             alt={p.title}
-                           />
-                           <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
-                           
-                           <div className="absolute top-6 right-6 flex gap-2">
-                             <a href={p.links?.github} target="_blank" rel="noopener noreferrer" title="View Source" className="p-3 bg-black/60 backdrop-blur-md rounded-2xl border border-white/10 hover:bg-amber-500 hover:text-black transition-all">
-                               <GithubIcon size={18} />
-                             </a>
-                             {p.links?.live && (
-                               <a href={p.links?.live} target="_blank" rel="noopener noreferrer" title="Live Demo" className="p-3 bg-black/60 backdrop-blur-md rounded-2xl border border-white/10 hover:bg-amber-500 hover:text-black transition-all">
-                                 <ExternalLink size={18} />
-                               </a>
-                             )}
-                           </div>
-                         </div>
-                         
-                         <div className="p-10 space-y-6 flex-1 flex flex-col">
-                           <div className="flex flex-wrap gap-2">
-                             {p.tech.map((t: string) => <span key={t} className="text-[10px] font-mono bg-white/5 border border-white/5 px-3 py-1 rounded-full uppercase text-white/40">{t}</span>)}
-                           </div>
-                           <h3 className="text-3xl font-black uppercase tracking-tighter text-white leading-none">{p.title}</h3>
-                           <p className="text-sm text-white/40 leading-relaxed font-medium flex-1 line-clamp-3 group-hover:line-clamp-none transition-all">{p.description}</p>
-                           
-                           <div className="pt-4 flex items-center gap-2 text-[10px] font-mono text-amber-500/40 uppercase tracking-widest font-bold">
-                             <Zap size={12} /> System Active
-                           </div>
-                         </div>
-                      </motion.div>
+                        <div className="h-48 overflow-hidden relative">
+                          <img
+                            src={p.image}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            alt={p.title}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent" />
+                          <div className="absolute top-4 right-4 flex gap-2">
+                            {p.links?.github && (
+                              <a href={p.links.github} target="_blank" rel="noopener noreferrer"
+                                 className="p-2 bg-black/50 backdrop-blur rounded-lg hover:bg-indigo-600 transition-colors">
+                                <GithubIcon size={16} />
+                              </a>
+                            )}
+                            {p.links?.live && (
+                              <a href={p.links.live} target="_blank" rel="noopener noreferrer"
+                                 className="p-2 bg-black/50 backdrop-blur rounded-lg hover:bg-indigo-600 transition-colors">
+                                <ExternalLink size={16} />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                        <div className="p-6 space-y-3">
+                          <div className="flex flex-wrap gap-2">
+                            {p.tech.map((t: string) => (
+                              <span key={t} className="text-xs px-2 py-1 bg-slate-700/50 text-slate-300 rounded-full">{t}</span>
+                            ))}
+                          </div>
+                          <h3 className="text-xl font-bold text-white">{p.title}</h3>
+                          <p className="text-sm text-slate-400 leading-relaxed">{p.description}</p>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}
 
                 {activeModule === 'contact' && (
-                  <div className="flex flex-col md:flex-row gap-12">
-                    <div className="flex-1 space-y-12">
-                      <div className="space-y-6">
-                        <div className="flex items-center gap-6 group cursor-pointer">
-                          <motion.div 
-                            animate={{ 
-                              scale: [1, 1.2, 1],
-                              rotate: [0, -10, 10, -10, 10, 0]
-                            }} 
-                            transition={{ repeat: Infinity, duration: 1.5 }} 
-                            className="w-16 h-16 rounded-2xl bg-amber-500 flex items-center justify-center text-black"
-                          >
-                            <Phone size={24} />
-                          </motion.div>
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-mono opacity-30 uppercase tracking-[0.3em]">Direct Voice Line</span>
-                            <div className="text-2xl font-black group-hover:text-amber-500 transition-colors uppercase">{portfolioData.contact.phone}</div>
-                          </div>
+                  <div className="grid md:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                      <a href={`tel:${portfolioData.contact.phone}`} className="flex items-center gap-4 group">
+                        <div className="w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+                          <Phone size={20} />
                         </div>
-                        
-                        <div className="flex items-center gap-6 group cursor-pointer">
-                          <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ repeat: Infinity, duration: 4 }} className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-amber-500">
-                            <Mail size={24} />
-                          </motion.div>
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-mono opacity-30 uppercase tracking-[0.3em]">Neural Mailbox</span>
-                            <div className="text-2xl font-black group-hover:text-amber-500 transition-colors uppercase">{portfolioData.contact.email}</div>
-                          </div>
+                        <div>
+                          <div className="text-xs text-slate-500">Phone</div>
+                          <div className="text-lg font-semibold text-white">{portfolioData.contact.phone}</div>
                         </div>
-
-                        <div className="flex items-center gap-6 group cursor-pointer">
-                          <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/40">
-                            <MapPin size={24} />
-                          </div>
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-mono opacity-30 uppercase tracking-[0.3em]">Deployment Base</span>
-                            <div className="text-2xl font-black uppercase">{portfolioData.contact.location}</div>
-                          </div>
+                      </a>
+                      <a href={`mailto:${portfolioData.contact.email}`} className="flex items-center gap-4 group">
+                        <div className="w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+                          <Mail size={20} />
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-500">Email</div>
+                          <div className="text-lg font-semibold text-white">{portfolioData.contact.email}</div>
+                        </div>
+                      </a>
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-slate-700/50 flex items-center justify-center text-slate-400">
+                          <MapPin size={20} />
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-500">Location</div>
+                          <div className="text-lg font-semibold text-white">{portfolioData.contact.location}</div>
                         </div>
                       </div>
-
-                      <div className="flex gap-4">
+                      <div className="flex gap-3 pt-4">
                         {portfolioData.socialProfiles.map(s => (
-                          <motion.a 
-                            key={s.name} 
-                            href={s.link} 
-                            whileHover={{ y: -5, scale: 1.1 }}
-                            className="p-5 rounded-2xl bg-white/5 border border-white/10 text-white/30 hover:text-amber-500 hover:border-amber-500/50 transition-all"
+                          <a
+                            key={s.name}
+                            href={s.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-3 rounded-xl bg-slate-700/50 text-slate-400 hover:bg-indigo-500 hover:text-white transition-colors"
                           >
-                            <s.icon size={24} />
-                          </motion.a>
+                            <s.icon size={20} />
+                          </a>
                         ))}
                       </div>
                     </div>
-
-                    <div className="w-full md:w-1/2 rounded-3xl bg-amber-500 p-8 md:p-12 relative overflow-hidden flex flex-col justify-end min-h-[400px]">
-                       <div className="absolute top-0 right-0 p-12 opacity-10">
-                         <Send size={200} className="md:w-96 md:h-96" />
-                       </div>
-                       <div className="relative z-10 space-y-4">
-                         <h3 className="text-4xl md:text-5xl font-black text-black uppercase tracking-tighter italic leading-none">Initialize <br /> Connection?</h3>
-                         <button className="w-full py-5 bg-black text-white text-xs font-black uppercase tracking-widest rounded-full hover:scale-105 transition-transform flex items-center justify-center gap-3">
-                           Send Pulse <Zap size={14} className="fill-white" />
-                         </button>
-                       </div>
+                    <div className="rounded-2xl bg-indigo-600 p-8 flex flex-col justify-end min-h-[300px] relative overflow-hidden">
+                      <Send size={120} className="absolute top-4 right-4 text-white/10" />
+                      <div className="relative z-10">
+                        <h3 className="text-3xl font-bold text-white mb-4">Let\'s Connect</h3>
+                        <a
+                          href={`mailto:${portfolioData.contact.email}`}
+                          className="inline-flex items-center gap-2 px-6 py-3 bg-white text-indigo-600 rounded-full font-semibold hover:bg-slate-100 transition-colors"
+                        >
+                          Send Message <Zap size={16} />
+                        </a>
+                      </div>
                     </div>
                   </div>
                 )}
 
                 {activeModule === 'whoami' && (
-                  <div className="space-y-16">
-                    <div className="grid md:grid-cols-2 gap-12 items-center">
-                      <div className="space-y-8">
-                        <div className="inline-block px-3 py-1 bg-amber-500/20 text-amber-500 text-[10px] font-black uppercase tracking-widest rounded-full border border-amber-500/20">Identity Profile</div>
-                        <p className="text-3xl md:text-5xl font-black leading-none uppercase tracking-tighter italic opacity-95">
-                          I build software that <span className="text-amber-500 underline decoration-white/20 underline-offset-8">learns</span>, <span className="text-amber-500 underline decoration-white/20 underline-offset-8">adapts</span>, and <span className="text-amber-500 underline decoration-white/20 underline-offset-8">empowers</span>.
+                  <div className="space-y-10">
+                    <div className="grid md:grid-cols-2 gap-8 items-center">
+                      <div className="space-y-6">
+                        <div className="inline-block px-3 py-1 bg-indigo-500/10 text-indigo-400 text-xs font-medium rounded-full border border-indigo-500/20">
+                          About Me
+                        </div>
+                        <p className="text-2xl md:text-3xl font-bold text-white leading-tight">
+                          Building software that learns, adapts, and empowers.
                         </p>
-                        <p className="text-lg text-white/50 leading-relaxed font-medium">
-                          Focused on the intersection of AI-native architecture and high-scale systems. From legacy microservice transition to multi-agent generative frameworks, my goal is peak operational efficiency and absolute accessibility.
+                        <p className="text-slate-400 leading-relaxed">
+                          {portfolioData.description}
                         </p>
-                        <div className="flex gap-4">
-                           {portfolioData.socialProfiles.map(s => (
-                             <a key={s.name} href={s.link} className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/5 rounded-xl hover:bg-amber-500 hover:text-black transition-all text-xs font-bold uppercase tracking-widest">
-                               <s.icon size={14} /> {s.name}
-                             </a>
-                           ))}
+                        <div className="flex gap-3">
+                          {portfolioData.socialProfiles.map(s => (
+                            <a key={s.name} href={s.link} target="_blank" rel="noopener noreferrer"
+                               className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 rounded-lg hover:bg-indigo-500 hover:text-white transition-colors text-sm">
+                              <s.icon size={16} /> {s.name}
+                            </a>
+                          ))}
                         </div>
                       </div>
-                      <div className="relative group">
-                        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 20, ease: "linear" }} className="absolute inset-0 border-t-2 border-r-2 border-amber-500/30 rounded-full scale-110 pointer-events-none" />
-                        <div className="aspect-square rounded-3xl border-4 border-white/10 bg-zinc-900 shadow-2xl relative overflow-hidden group-hover:border-amber-500/50 transition-all duration-500">
-                           <img src={portfolioData.profilePhoto} className="w-full h-full object-cover grayscale transition-all duration-700 group-hover:grayscale-0 group-hover:scale-105" referrerPolicy="no-referrer" />
-                           <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60" />
-                           <div className="absolute bottom-6 left-6 right-6 p-4 bg-black/60 backdrop-blur-md rounded-2xl border border-white/10 uppercase font-mono text-[10px] text-white/40">
-                              Neural Ops Specialist // Lvl 42
-                           </div>
-                           <ScanLine />
+                      <div className="relative">
+                        <div className="aspect-square rounded-2xl overflow-hidden border border-slate-700">
+                          <img src="/avatar_3d_portrait.png" className="w-full h-full object-cover"
+                               onError={(e) => { (e.target as HTMLImageElement).src = "/profile.jpg"; }} />
                         </div>
                       </div>
                     </div>
 
-                    <div className="space-y-8">
-                      <div className="flex items-center gap-6">
-                        <div className="h-px flex-1 bg-white/10" />
-                        <h3 className="text-xl font-black uppercase tracking-widest text-white/20">Personal Interests</h3>
-                        <div className="h-px flex-1 bg-white/10" />
-                      </div>
-                      
-                      <div className="grid md:grid-cols-3 gap-8">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white mb-6">Personal Interests</h3>
+                      <div className="grid md:grid-cols-4 gap-4">
                         {(portfolioData as any).hobbies.map((h: any, i: number) => (
-                          <div key={i} className="p-6 rounded-3xl bg-white/5 border border-white/5 space-y-6 group">
-                            <div className="h-40 rounded-2xl overflow-hidden relative">
-                              <img src={h.image} className="w-full h-full object-cover grayscale brightness-50 group-hover:grayscale-0 group-hover:brightness-100 transition-all duration-500" referrerPolicy="no-referrer" />
-                              <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
-                                {h.type === 'GAMING' && <SnakeAnimation />}
-                                {h.type === 'PIANO' && <MiniPiano />}
-                                {h.type === 'MEDIA' && <CinemaAnimation />}
-                              </div>
+                          <div key={i} className="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/50 space-y-3">
+                            <div className="h-16 rounded-xl overflow-hidden relative bg-slate-900 flex items-center justify-center">
+                              {h.type === 'PIANO' && <MiniPiano />}
+                              {h.type === 'MEDIA' && <CinemaAnimation />}
+                              {h.type === 'GAMING' && (
+                                <div className="text-3xl">🎮</div>
+                              )}
                             </div>
-                            <div className="space-y-2">
-                              <h4 className="text-lg font-black uppercase tracking-tight text-amber-500">{h.name}</h4>
-                              <p className="text-xs text-white/40 leading-relaxed font-medium uppercase">{h.desc}</p>
+                            <div>
+                              <h4 className="font-semibold text-indigo-400 text-sm">{h.name}</h4>
+                              <p className="text-xs text-slate-500 mt-1 line-clamp-2">{h.desc}</p>
                             </div>
                           </div>
                         ))}
+                        {/* Vibe Coding Card */}
+                        <div className="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/50 space-y-3">
+                          <div className="h-16 rounded-xl overflow-hidden relative bg-slate-900 flex items-center justify-center">
+                            <VibeCodingAnimation />
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-emerald-400 text-sm">Vibe Coding</h4>
+                            <p className="text-xs text-slate-500 mt-1 line-clamp-2">Building with AI, riding the flow state, shipping fast.</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -612,18 +825,18 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      {/* Persistent Status Bar */}
-      <footer className="fixed bottom-0 left-0 right-0 z-50 p-6 flex justify-between items-center bg-gradient-to-t from-black to-transparent pointer-events-none">
-        <div className="flex items-center gap-4">
-           <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-           <span className="text-[10px] font-mono text-white/30 uppercase tracking-[0.2em] font-bold">Signal Strong • Latency: 4ms</span>
+      {/* Simplified Footer */}
+      <footer className="fixed bottom-0 left-0 right-0 z-40 p-4 flex justify-between items-center bg-gradient-to-t from-slate-950 to-transparent pointer-events-none">
+        <div className="flex items-center gap-3">
+          <div className="w-2 h-2 rounded-full bg-emerald-500" />
+          <span className="text-xs font-mono text-slate-500">Ready</span>
         </div>
-        <div className="flex gap-6 pointer-events-auto">
-           {portfolioData.socialProfiles.map(s => (
-             <a key={s.name} href={s.link} target="_blank" rel="noopener noreferrer">
-              <s.icon size={14} className="text-white/30 hover:text-amber-500 cursor-pointer transition-colors" />
-             </a>
-           ))}
+        <div className="flex gap-4 pointer-events-auto">
+          {portfolioData.socialProfiles.map(s => (
+            <a key={s.name} href={s.link} target="_blank" rel="noopener noreferrer">
+              <s.icon size={16} className="text-slate-500 hover:text-indigo-400 transition-colors" />
+            </a>
+          ))}
         </div>
       </footer>
     </div>
