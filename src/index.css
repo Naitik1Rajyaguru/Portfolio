@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@layer base {
+  .invisible-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .invisible-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@keyframes scan-line {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+.scan-line {
+  animation: scan-line 4s linear infinite;
+}
+
